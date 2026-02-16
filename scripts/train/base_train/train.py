@@ -1,7 +1,7 @@
 import os
 import sys
 
-sys.path.append('./src/diffusion-policy')
+sys.path.append('./third_party/diffusion-policy')
 import logging
 import sys
 from datetime import datetime
