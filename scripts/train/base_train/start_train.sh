@@ -25,8 +25,8 @@ done
 # Set GPU devices and NUM_GPUS
 case $MODEL in
     "rdp")
-        export CUDA_VISIBLE_DEVICES=0,1,2,3
-        NUM_GPUS=4
+        export CUDA_VISIBLE_DEVICES=0,1
+        NUM_GPUS=2
         ;;
     "cma")
         export CUDA_VISIBLE_DEVICES=0
