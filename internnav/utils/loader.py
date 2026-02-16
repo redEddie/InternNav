@@ -150,7 +150,13 @@ class LerobotAsLmdb:
                         trajectory_path = os.path.join(scene_path, trajectory)
                         if not os.path.isdir(trajectory_path):
                             continue
-                        keys.append(f"{scan}_{scene_index}_000_{trajectory:06d}")
+                        # Legacy folder layout: {scan}/{scene}/{trajectory}/data/chunk-xxx/episode_yyyyyy.parquet
+                        # `os.listdir` returns strings; keep only numeric trajectory ids.
+                        try:
+                            trajectory_idx = int(trajectory)
+                        except ValueError:
+                            continue
+                        keys.append(f"{scan}_{scene_index}_000_{trajectory_idx:06d}")
         return keys
 
     def get_data_by_key(self, key):
@@ -176,8 +182,18 @@ class LerobotAsLmdb:
 
         chunk_str = f"chunk-{chunk_idx:03d}"
         parquet_path = os.path.join(base_path, "data", chunk_str, f"episode_{episode_idx:06d}.parquet")
+        episode_idx_for_meta = episode_idx
         if not os.path.exists(parquet_path):
-            raise FileNotFoundError(f"Parquet file not found: {parquet_path}")
+            # Legacy layout fallback:
+            #   {scan}/{scene}/{trajectory}/data/chunk-000/episode_000000.parquet
+            trajectory_dir = os.path.join(base_path, f"{episode_idx}")
+            legacy_parquet = os.path.join(trajectory_dir, "data", chunk_str, "episode_000000.parquet")
+            if os.path.exists(legacy_parquet):
+                base_path = trajectory_dir
+                parquet_path = legacy_parquet
+                episode_idx_for_meta = 0
+            else:
+                raise FileNotFoundError(f"Parquet file not found: {parquet_path}")
 
         df = pd.read_parquet(parquet_path)
 
@@ -190,7 +206,7 @@ class LerobotAsLmdb:
                 for line in f:
                     try:
                         stats_data = json.loads(line.strip())
-                        if stats_data.get("episode_index") == episode_idx:
+                        if stats_data.get("episode_index") == episode_idx_for_meta:
                             task_info = stats_data.get("task_index", {})
                             task_min = task_info.get("min", 0)
                             task_max = task_info.get("max", 0)
@@ -218,11 +234,16 @@ class LerobotAsLmdb:
                     print(f"Error decoding tasks JSON: {e}")
 
         rgb_path = os.path.join(
-            base_path, "videos", chunk_str, "observation.images.rgb", f"episode_{episode_idx:06d}.npy"
+            base_path, "videos", chunk_str, "observation.images.rgb", f"episode_{episode_idx_for_meta:06d}.npy"
         )
         depth_path = os.path.join(
-            base_path, "videos", chunk_str, "observation.images.depth", f"episode_{episode_idx:06d}.npy"
+            base_path, "videos", chunk_str, "observation.images.depth", f"episode_{episode_idx_for_meta:06d}.npy"
         )
+        # Legacy naming fallback in some trajectory-level exports.
+        if not os.path.exists(rgb_path):
+            rgb_path = os.path.join(base_path, "videos", chunk_str, "observation.images.rgb", "rgb.npy")
+        if not os.path.exists(depth_path):
+            depth_path = os.path.join(base_path, "videos", chunk_str, "observation.images.depth", "depth.npy")
 
         data = {}
         data['episode_data'] = {}
