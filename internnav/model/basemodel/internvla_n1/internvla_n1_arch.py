@@ -1,10 +1,11 @@
 from abc import ABC, abstractmethod
+from pathlib import Path
 
 import torch
 import torch.nn as nn
 
 LatentEmbSize = 768
-MODEL_PATH_TO = "checkpoints"
+MODEL_PATH_TO = Path(__file__).resolve().parents[4] / "checkpoints"
 
 
 def build_navdp(navdp_cfg, memory_size):
